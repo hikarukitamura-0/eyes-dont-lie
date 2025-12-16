@@ -1,0 +1,20 @@
+# Zone Key - データ収集プログラム
+# 依存パッケージ
+
+# 入力デバイス制御
+pynput==1.7.7
+
+# データ処理
+numpy==1.26.3
+pandas==2.1.4
+
+# 環境センサー通信（M5Stack連携）
+pyserial==3.5
+
+# ウィンドウ情報取得（プラットフォーム依存）
+# macOS用
+pyobjc-framework-Cocoa==10.1; sys_platform == 'darwin'
+
+# Windows用
+pygetwindow==0.0.9; sys_platform == 'win32'
+
