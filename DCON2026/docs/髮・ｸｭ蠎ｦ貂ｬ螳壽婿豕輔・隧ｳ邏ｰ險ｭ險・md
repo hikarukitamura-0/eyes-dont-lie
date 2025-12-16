@@ -1,0 +1,980 @@
+# **集中度測定方法の詳細設計**
+
+プロジェクト名: Zone Key - Focus Measurement System  
+バージョン: 2.0（PVT 採用版）  
+作成日: 2025-12-11  
+最終更新: 2025-12-11
+
+---
+
+## **1. 概要**
+
+本設計書は、ディープラーニングモデルの学習に必要な「集中度」のラベルデータを取得するための測定方法を定義する。**PVT（Psychomotor Vigilance Test：精神運動警戒検査）**を主軸とした科学的根拠のある測定手法を採用する。
+
+### **1.1 なぜ PVT なのか**
+
+PVT は**NASA、米軍、医療機関で使用される標準的な疲労・覚醒度測定手法**であり、以下の特徴がある：
+
+| 特徴           | 説明                                           |
+| :------------- | :--------------------------------------------- |
+| **科学的根拠** | 医学論文・研究で実証された信頼性の高い手法     |
+| **客観性**     | 主観的評価に依存せず、生理学的な反応速度を測定 |
+| **シンプル**   | 実装が容易で、ユーザーへの負担が少ない         |
+| **即時性**     | リアルタイムで覚醒度を測定可能                 |
+| **再現性**     | 測定条件が統一されており、データの一貫性が高い |
+
+### **1.2 DCON での評価ポイント**
+
+PVT の採用により、以下の観点で高評価が期待できる：
+
+- ✅ **科学的妥当性**: 医学的に実証された手法
+- ✅ **革新性**: 従来のアプリにない客観的測定
+- ✅ **実用性**: ユーザーに負担をかけない設計
+- ✅ **信頼性**: 国際的に認められた標準手法
+
+### **1.3 参考文献**
+
+- **Dinges, D. F., & Powell, J. W. (1985).** "Microcomputer analyses of performance on a portable, simple visual RT task during sustained operations." _Behavior Research Methods, Instruments, & Computers._
+- **NASA Human Research Program**: PVT を宇宙飛行士の疲労測定に使用
+- **米国防総省**: 兵士の覚醒度管理に採用
+
+---
+
+## **2. PVT（精神運動警戒検査）の詳細**
+
+### **2.1 PVT とは**
+
+PVT は、**視覚刺激に対する反応時間（Reaction Time: RT）を測定**することで、覚醒度・注意力・疲労度を評価する心理学的テストです。
+
+#### **基本原理**
+
+```
+視覚刺激の提示 → ユーザーの反応（クリック/キー押下） → 反応時間の記録
+```
+
+- **刺激**: 画面に図形（🔴 など）を表示
+- **応答**: ユーザーができるだけ早くキーを押す
+- **測定**: 刺激提示から応答までの時間（ミリ秒）
+
+#### **判定基準**
+
+| 反応時間（RT）    | 覚醒度レベル       | 集中度スコア | 解釈                               |
+| :---------------- | :----------------- | :----------- | :--------------------------------- |
+| **150-250ms**     | 非常に高い         | 0.9-1.0      | 超集中状態（Deep Focus）           |
+| **250-350ms**     | 高い               | 0.7-0.9      | 集中状態（Focused）                |
+| **350-500ms**     | 通常               | 0.5-0.7      | 通常の作業状態（Open）             |
+| **500-700ms**     | 低い               | 0.3-0.5      | 注意力低下（Distracted）           |
+| **700ms 以上**    | 非常に低い         | 0.0-0.3      | 疲労・限界（Overheat）             |
+| **反応なし(2s+)** | 覚醒度ゼロ（欠損） | 0.0          | マイクロスリープ（居眠り）の可能性 |
+
+### **2.2 医学的根拠**
+
+PVT は以下の生理学的現象を測定している：
+
+1. **注意の持続性（Sustained Attention）**
+
+   - 長時間作業による注意力の低下を検出
+   - 疲労が蓄積すると反応時間が遅くなる
+
+2. **覚醒度（Alertness）**
+
+   - 脳の覚醒レベルを反映
+   - 睡眠不足や疲労により反応時間が延長
+
+3. **認知処理速度（Processing Speed）**
+   - 視覚情報の処理から運動出力までの速度
+   - ストレスや疲労で処理速度が低下
+
+### **2.3 従来の自己申告との比較**
+
+| 項目         | 自己申告         | PVT                  |
+| :----------- | :--------------- | :------------------- |
+| **客観性**   | 低い（主観的）   | 高い（生理学的指標） |
+| **バイアス** | あり             | なし                 |
+| **再現性**   | 低い             | 高い                 |
+| **負担**     | 中（入力が必要） | 低（1 回数秒）       |
+| **科学性**   | 低い             | 高い（医学的根拠）   |
+
+---
+
+## **3. 実装設計**
+
+### **3.1 PVT テストの実行タイミング**
+
+#### **3.1.1 抜き打ちテスト方式**
+
+ユーザーの自然な作業状態を測定するため、**予測不可能なタイミング**でテストを実行する。
+
+```python
+# テスト実行間隔
+TEST_INTERVAL = 5 * 60  # 5分
+
+# 固定間隔でテストを実施
+next_test_time = current_time + TEST_INTERVAL
+```
+
+#### **3.1.2 実行頻度**
+
+| 時間帯     | 頻度     | 理由                                         |
+| :--------- | :------- | :------------------------------------------- |
+| **全時間** | 5 分ごと | 集中度の変化を詳細に追跡し、データ収集を加速 |
+
+### **3.2 PVT テストの実装**
+
+#### **3.2.1 基本実装（`pvt_test.py`）**
+
+```python
+import tkinter as tk
+import time
+import random
+import sqlite3
+from datetime import datetime
+
+class PVTTest:
+    """PVT（精神運動警戒検査）テスト"""
+
+    def __init__(self, db_path="zone_key_data.db"):
+        self.db = sqlite3.connect(db_path)
+        self.cursor = self.db.cursor()
+        self.create_table()
+
+        self.window = None
+        self.stimulus_time = None
+        self.reaction_time = None
+
+    def create_table(self):
+        """PVTテスト結果を保存するテーブル作成"""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pvt_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                stimulus_time REAL NOT NULL,
+                reaction_time_ms REAL,
+                focus_score REAL,
+                alertness_level TEXT,
+                is_lapse BOOLEAN,
+                false_start BOOLEAN
+            )
+        """)
+        self.db.commit()
+
+    def show_test(self):
+        """PVTテストを表示"""
+        # 小さなウィンドウを作成（400x300）
+        self.window = tk.Tk()
+        self.window.title("PVT テスト")
+
+        # ウィンドウサイズと位置を設定
+        window_width = 400
+        window_height = 300
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.window.configure(bg='black')
+
+        # 最前面に表示（作業の邪魔にならない小さなウィンドウ）
+        self.window.attributes('-topmost', True)
+        self.window.lift()
+        self.window.focus_force()
+
+        # ESCキーで中断可能
+        self.window.bind('<Escape>', lambda e: self.cancel_test())
+
+        # テスト開始メッセージ
+        instruction = tk.Label(
+            self.window,
+            text="🔴が表示されたら\nできるだけ早く\nスペースキーを押してください",
+            font=("Arial", 16),
+            fg="white",
+            bg="black"
+        )
+        instruction.pack(expand=True)
+
+        # 短い遅延（0.5-1.5秒）後に刺激を表示
+        delay = random.uniform(500, 1500)
+        self.window.after(int(delay), lambda: self.show_stimulus(instruction))
+
+        # スペースキーでの反応を待つ
+        self.window.bind('<space>', self.on_response)
+
+        # 早押し（フライング）検出
+        self.stimulus_time = None
+        self.false_start = False
+
+        self.window.mainloop()
+
+    def show_stimulus(self, instruction_label):
+        """視覚刺激（赤い円）を表示"""
+        instruction_label.destroy()
+
+        # 刺激表示時刻を記録
+        self.stimulus_time = time.time()
+
+        # 赤い円を表示
+        canvas = tk.Canvas(self.window, width=200, height=200,
+                          bg='black', highlightthickness=0)
+        canvas.pack(expand=True)
+        canvas.create_oval(10, 10, 190, 190, fill='red')
+
+        # タイムアウト（2秒）
+        self.window.after(2000, self.on_timeout)
+
+    def on_response(self, event):
+        """ユーザーの反応を記録"""
+        response_time = time.time()
+
+        # フライング（刺激前に押した）の検出
+        if self.stimulus_time is None:
+            self.false_start = True
+            self.show_result("フライング！\n刺激が表示される前に押されました。", "orange")
+            return
+
+        # 反応時間の計算（ミリ秒）
+        self.reaction_time = (response_time - self.stimulus_time) * 1000
+
+        # 結果を保存
+        self.save_result(self.reaction_time, false_start=False)
+
+        # 結果を表示
+        focus_score = self.calculate_focus_score(self.reaction_time)
+        alertness_level = self.get_alertness_level(self.reaction_time)
+
+        result_text = f"反応時間: {self.reaction_time:.0f}ms\n\n"
+        result_text += f"覚醒度: {alertness_level}\n"
+        result_text += f"集中度スコア: {focus_score:.2f}"
+
+        color = self.get_result_color(self.reaction_time)
+        self.show_result(result_text, color)
+
+    def on_timeout(self):
+        """タイムアウト（反応なし）"""
+        if self.reaction_time is None:
+            self.save_result(None, false_start=False)
+            self.show_result("反応なし（タイムアウト）\n\n覚醒度: 非常に低い", "red")
+
+    def calculate_focus_score(self, rt_ms):
+        """反応時間から集中度スコアを計算（0.0-1.0）"""
+        if rt_ms is None:
+            return 0.0
+
+        if rt_ms < 150:
+            # 150ms未満は非現実的（予測押し）
+            return 0.5
+        elif rt_ms < 250:
+            # 150-250ms: 超集中
+            return 0.9 + (250 - rt_ms) / 1000
+        elif rt_ms < 350:
+            # 250-350ms: 集中
+            return 0.7 + (350 - rt_ms) / 500
+        elif rt_ms < 500:
+            # 350-500ms: 通常
+            return 0.5 + (500 - rt_ms) / 750
+        elif rt_ms < 700:
+            # 500-700ms: 低下
+            return 0.3 + (700 - rt_ms) / 1000
+        else:
+            # 700ms以上: 非常に低い
+            return max(0.0, 0.3 - (rt_ms - 700) / 2000)
+
+    def get_alertness_level(self, rt_ms):
+        """覚醒度レベルの判定"""
+        if rt_ms is None:
+            return "非常に低い（欠損）"
+        elif rt_ms < 250:
+            return "非常に高い"
+        elif rt_ms < 350:
+            return "高い"
+        elif rt_ms < 500:
+            return "通常"
+        elif rt_ms < 700:
+            return "低い"
+        else:
+            return "非常に低い"
+
+    def get_result_color(self, rt_ms):
+        """結果表示の色"""
+        if rt_ms is None:
+            return "red"
+        elif rt_ms < 250:
+            return "lime"
+        elif rt_ms < 350:
+            return "lightgreen"
+        elif rt_ms < 500:
+            return "yellow"
+        elif rt_ms < 700:
+            return "orange"
+        else:
+            return "red"
+
+    def save_result(self, rt_ms, false_start):
+        """結果をデータベースに保存"""
+        focus_score = self.calculate_focus_score(rt_ms) if rt_ms else 0.0
+        alertness_level = self.get_alertness_level(rt_ms)
+        is_lapse = (rt_ms is None or rt_ms > 500) if rt_ms else True
+
+        self.cursor.execute("""
+            INSERT INTO pvt_results (
+                timestamp,
+                stimulus_time,
+                reaction_time_ms,
+                focus_score,
+                alertness_level,
+                is_lapse,
+                false_start
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            time.time(),
+            self.stimulus_time or 0,
+            rt_ms,
+            focus_score,
+            alertness_level,
+            is_lapse,
+            false_start
+        ))
+        self.db.commit()
+
+        # 最新のtraining_dataレコードにfocus_scoreを更新
+        self.cursor.execute("""
+            UPDATE training_data
+            SET focus_score = ?,
+                state_label = ?
+            WHERE id = (SELECT MAX(id) FROM training_data)
+        """, (
+            focus_score,
+            "Deep Focus" if focus_score > 0.7 else
+            "Open" if focus_score >= 0.3 else
+            "Overheat"
+        ))
+        self.db.commit()
+
+    def show_result(self, text, color):
+        """結果を表示"""
+        # 既存のウィジェットをクリア
+        for widget in self.window.winfo_children():
+            widget.destroy()
+
+        result_label = tk.Label(
+            self.window,
+            text=text,
+            font=("Arial", 28, "bold"),
+            fg=color,
+            bg="black"
+        )
+        result_label.pack(expand=True)
+
+        # 3秒後に自動的に閉じる
+        self.window.after(3000, self.close_test)
+
+    def cancel_test(self):
+        """テストをキャンセル"""
+        self.close_test()
+
+    def close_test(self):
+        """テストを閉じる"""
+        if self.window:
+            self.window.destroy()
+            self.window = None
+
+    def close_db(self):
+        """データベース接続を閉じる"""
+        self.db.close()
+
+
+# テスト実行
+if __name__ == "__main__":
+    pvt = PVTTest()
+    pvt.show_test()
+    pvt.close_db()
+```
+
+### **3.3 メインプログラムへの統合**
+
+データ収集プログラムに PVT テストを統合する。
+
+```python
+import time
+import random
+import threading
+from data_aggregator import DataAggregator
+from data_storage import DataStorage
+from pvt_test import PVTTest
+
+class ZoneKeyDataCollector:
+    def __init__(self):
+        self.aggregator = DataAggregator()
+        self.storage = DataStorage()
+        self.pvt = PVTTest()
+        self.running = False
+
+        # 次のPVTテスト実行時刻
+        self.next_pvt_time = time.time() + random.uniform(30*60, 60*60)
+
+    def collect_loop(self):
+        """1分ごとにデータ収集"""
+        while self.running:
+            try:
+                # 通常のデータ収集
+                data = self.aggregator.collect_1min_data()
+                self.storage.save_data(data)
+                print(f"データ保存完了: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # PVTテストの実行判定
+                if time.time() >= self.next_pvt_time:
+                    self.run_pvt_test()
+                    # 次のテスト時刻を設定（30-60分後）
+                    self.next_pvt_time = time.time() + random.uniform(30*60, 60*60)
+
+            except Exception as e:
+                print(f"エラー: {e}")
+
+            time.sleep(60)  # 1分待機
+
+    def run_pvt_test(self):
+        """PVTテストを実行"""
+        print("\n" + "="*50)
+        print("🔴 PVTテストを開始します")
+        print("="*50)
+
+        # メインスレッドでGUIを実行
+        self.pvt.show_test()
+
+    def start(self):
+        """データ収集開始"""
+        self.running = True
+        print("データ収集を開始します...")
+        print(f"次のPVTテスト: {time.strftime('%H:%M:%S', time.localtime(self.next_pvt_time))}")
+
+        # バックグラウンドスレッドで実行
+        thread = threading.Thread(target=self.collect_loop, daemon=True)
+        thread.start()
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nデータ収集を停止します...")
+            self.stop()
+
+    def stop(self):
+        """データ収集停止"""
+        self.running = False
+        self.storage.close()
+        self.pvt.close_db()
+        print("データ収集を停止しました。")
+
+if __name__ == "__main__":
+    collector = ZoneKeyDataCollector()
+    collector.start()
+```
+
+---
+
+## **4. PVT データの分析**
+
+### **4.1 個人ベースラインの確立**
+
+PVT は**個人差が大きい**ため、各ユーザーの「通常状態」のベースラインを確立する必要がある。
+
+```python
+def calculate_baseline(db_path="zone_key_data.db"):
+    """個人のベースライン反応時間を計算"""
+
+    conn = sqlite3.connect(db_path)
+    df = pd.read_sql_query("""
+        SELECT reaction_time_ms
+        FROM pvt_results
+        WHERE reaction_time_ms IS NOT NULL
+          AND false_start = 0
+        ORDER BY timestamp
+        LIMIT 20
+    """, conn)
+
+    # 最初の20回のテストからベースラインを計算
+    baseline_rt = df['reaction_time_ms'].median()
+    baseline_std = df['reaction_time_ms'].std()
+
+    print(f"個人ベースライン: {baseline_rt:.0f}ms ± {baseline_std:.0f}ms")
+
+    return {
+        "baseline_median": baseline_rt,
+        "baseline_std": baseline_std,
+        "baseline_range": (baseline_rt - baseline_std, baseline_rt + baseline_std)
+    }
+```
+
+### **4.2 疲労指標の計算**
+
+```python
+def calculate_fatigue_index(db_path="zone_key_data.db", window_minutes=60):
+    """疲労指標を計算"""
+
+    conn = sqlite3.connect(db_path)
+    current_time = time.time()
+
+    df = pd.read_sql_query("""
+        SELECT reaction_time_ms, timestamp
+        FROM pvt_results
+        WHERE timestamp > ?
+          AND reaction_time_ms IS NOT NULL
+          AND false_start = 0
+        ORDER BY timestamp
+    """, conn, params=(current_time - window_minutes * 60,))
+
+    if len(df) == 0:
+        return None
+
+    # 1. 平均反応時間の増加
+    recent_mean = df['reaction_time_ms'].mean()
+
+    # 2. ラプス（500ms以上の遅い反応）の頻度
+    lapse_count = (df['reaction_time_ms'] > 500).sum()
+    lapse_rate = lapse_count / len(df)
+
+    # 3. 反応時間の変動（標準偏差）
+    rt_std = df['reaction_time_ms'].std()
+
+    # 疲労スコアの計算（0.0-1.0、高いほど疲労）
+    fatigue_score = min(1.0, (
+        (recent_mean - 300) / 400 * 0.4 +  # 平均RT
+        lapse_rate * 0.4 +                  # ラプス率
+        (rt_std / 100) * 0.2                # 変動性
+    ))
+
+    return {
+        "fatigue_score": fatigue_score,
+        "mean_rt": recent_mean,
+        "lapse_rate": lapse_rate,
+        "rt_variability": rt_std,
+        "interpretation": (
+            "疲労なし" if fatigue_score < 0.3 else
+            "軽度の疲労" if fatigue_score < 0.6 else
+            "中程度の疲労" if fatigue_score < 0.8 else
+            "重度の疲労"
+        )
+    }
+```
+
+---
+
+## **5. データベーススキーマの更新**
+
+PVT テスト結果を保存するテーブルを追加：
+
+```sql
+-- PVTテスト結果テーブル
+CREATE TABLE pvt_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp REAL NOT NULL,              -- テスト実施時刻
+    stimulus_time REAL NOT NULL,          -- 刺激提示時刻
+    reaction_time_ms REAL,                -- 反応時間（ミリ秒、NULL=反応なし）
+    focus_score REAL,                     -- 集中度スコア（0.0-1.0）
+    alertness_level TEXT,                 -- 覚醒度レベル
+    is_lapse BOOLEAN,                     -- ラプス（500ms以上）かどうか
+    false_start BOOLEAN                   -- フライング（刺激前に反応）
+);
+
+-- training_dataテーブルの更新（focus_scoreはPVTから取得）
+ALTER TABLE training_data ADD COLUMN pvt_reaction_time REAL;
+ALTER TABLE training_data ADD COLUMN pvt_focus_score REAL;
+```
+
+---
+
+## **6. 学習データセットの生成**
+
+PVT の結果を学習データに統合する。
+
+```python
+def export_training_dataset_with_pvt(db_path="zone_key_data.db",
+                                     output_path="dataset_pvt.csv"):
+    """PVTデータを含む学習用データセットをエクスポート"""
+
+    conn = sqlite3.connect(db_path)
+
+    # メインクエリ：training_dataとpvt_resultsを結合
+    query = """
+        SELECT
+            t.timestamp,
+
+            -- キーストロークデータ
+            t.typing_speed_kpm,
+            t.avg_key_interval_ms,
+            t.std_key_interval_ms,
+            t.mistype_frequency,
+
+            -- マウスデータ
+            t.movement_distance_px,
+            t.click_frequency,
+
+            -- ウィンドウデータ
+            t.work_category,
+            t.window_switch_count,
+
+            -- 環境データ
+            t.temperature,
+            t.humidity,
+            t.pressure,
+
+            -- PVTデータ（直近のテスト結果）
+            p.reaction_time_ms AS pvt_rt,
+            p.focus_score AS pvt_focus_score,
+            p.is_lapse AS pvt_lapse,
+
+            -- ターゲット変数
+            p.focus_score AS target_focus_score,
+            CASE
+                WHEN p.focus_score > 0.7 THEN 'Deep Focus'
+                WHEN p.focus_score >= 0.3 THEN 'Open'
+                ELSE 'Overheat'
+            END AS target_state
+
+        FROM training_data t
+        LEFT JOIN (
+            SELECT
+                *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY CAST(timestamp / 3600 AS INTEGER)
+                    ORDER BY timestamp DESC
+                ) as rn
+            FROM pvt_results
+            WHERE reaction_time_ms IS NOT NULL
+        ) p ON p.rn = 1
+        WHERE p.reaction_time_ms IS NOT NULL
+        ORDER BY t.timestamp
+    """
+
+    df = pd.read_sql_query(query, conn)
+
+    # 作業カテゴリのOne-Hot Encoding
+    df = pd.get_dummies(df, columns=['work_category'])
+
+    # 時刻のCyclical Encoding
+    df['hour_sin'] = np.sin(2 * np.pi * df['timestamp'].apply(
+        lambda x: datetime.fromtimestamp(x).hour) / 24)
+    df['hour_cos'] = np.cos(2 * np.pi * df['timestamp'].apply(
+        lambda x: datetime.fromtimestamp(x).hour) / 24)
+
+    # CSV出力
+    df.to_csv(output_path, index=False)
+    conn.close()
+
+    print(f"✅ PVTデータセット生成完了: {output_path}")
+    print(f"   総サンプル数: {len(df)}")
+    print(f"   特徴量数: {len(df.columns) - 2}")  # ターゲット変数を除く
+
+    # データ分布の確認
+    print("\n【集中度スコアの分布】")
+    print(df['target_focus_score'].describe())
+    print("\n【状態ラベルの分布】")
+    print(df['target_state'].value_counts())
+```
+
+---
+
+## **7. ユーザーエクスペリエンスの最適化**
+
+### **7.1 テスト通知の設計**
+
+```python
+def show_pvt_notification():
+    """PVTテスト開始前の通知を表示"""
+
+    notification = tk.Tk()
+    notification.title("Zone Key")
+    notification.geometry("400x200")
+    notification.attributes('-topmost', True)
+
+    message = tk.Label(
+        notification,
+        text="🔴 集中度測定テスト\n\n"
+             "数秒後にテストが開始されます。\n"
+             "赤い円が表示されたら、\n"
+             "できるだけ早くスペースキーを押してください。",
+        font=("Arial", 12),
+        pady=20
+    )
+    message.pack()
+
+    # カウントダウン
+    countdown_label = tk.Label(notification, text="3", font=("Arial", 24, "bold"))
+    countdown_label.pack()
+
+    def countdown(n):
+        if n > 0:
+            countdown_label.config(text=str(n))
+            notification.after(1000, lambda: countdown(n-1))
+        else:
+            notification.destroy()
+            # PVTテスト開始
+            pvt = PVTTest()
+            pvt.show_test()
+
+    countdown(3)
+    notification.mainloop()
+```
+
+### **7.2 テスト結果のフィードバック**
+
+ユーザーにテスト結果をわかりやすく伝える：
+
+```python
+def show_detailed_feedback(rt_ms, focus_score):
+    """詳細なフィードバックを表示"""
+
+    feedback_window = tk.Tk()
+    feedback_window.title("PVTテスト結果")
+    feedback_window.geometry("500x400")
+
+    # 結果サマリー
+    title = tk.Label(
+        feedback_window,
+        text=f"反応時間: {rt_ms:.0f}ms",
+        font=("Arial", 20, "bold")
+    )
+    title.pack(pady=20)
+
+    # スコア表示
+    score_label = tk.Label(
+        feedback_window,
+        text=f"集中度スコア: {focus_score:.2f}/1.0",
+        font=("Arial", 16)
+    )
+    score_label.pack()
+
+    # 評価メッセージ
+    if rt_ms < 250:
+        message = "素晴らしい！非常に高い集中力です。"
+        emoji = "🌟"
+    elif rt_ms < 350:
+        message = "良好です。集中できています。"
+        emoji = "✅"
+    elif rt_ms < 500:
+        message = "通常の状態です。"
+        emoji = "👍"
+    elif rt_ms < 700:
+        message = "少し疲れているかもしれません。"
+        emoji = "😐"
+    else:
+        message = "休憩をおすすめします。"
+        emoji = "😴"
+
+    emoji_label = tk.Label(feedback_window, text=emoji, font=("Arial", 48))
+    emoji_label.pack(pady=10)
+
+    message_label = tk.Label(feedback_window, text=message, font=("Arial", 14))
+    message_label.pack(pady=10)
+
+    # 閉じるボタン
+    close_btn = tk.Button(
+        feedback_window,
+        text="閉じる",
+        command=feedback_window.destroy,
+        font=("Arial", 12),
+        width=15,
+        height=2
+    )
+    close_btn.pack(pady=20)
+
+    feedback_window.mainloop()
+```
+
+---
+
+## **8. 評価とバリデーション**
+
+### **8.1 PVT データの品質チェック**
+
+```python
+def validate_pvt_data(db_path="zone_key_data.db"):
+    """PVTデータの品質を検証"""
+
+    conn = sqlite3.connect(db_path)
+    df = pd.read_sql_query("""
+        SELECT *
+        FROM pvt_results
+        WHERE reaction_time_ms IS NOT NULL
+          AND false_start = 0
+    """, conn)
+
+    print("="*50)
+    print("PVTデータ品質レポート")
+    print("="*50)
+
+    # 1. サンプル数
+    print(f"\n総テスト回数: {len(df)}")
+
+    # 2. 反応時間の分布
+    print(f"\n【反応時間の統計】")
+    print(f"  平均: {df['reaction_time_ms'].mean():.0f}ms")
+    print(f"  中央値: {df['reaction_time_ms'].median():.0f}ms")
+    print(f"  標準偏差: {df['reaction_time_ms'].std():.0f}ms")
+    print(f"  範囲: {df['reaction_time_ms'].min():.0f} - {df['reaction_time_ms'].max():.0f}ms")
+
+    # 3. ラプス率
+    lapse_rate = (df['is_lapse'] == 1).sum() / len(df) * 100
+    print(f"\nラプス率（500ms以上）: {lapse_rate:.1f}%")
+
+    # 4. 覚醒度レベルの分布
+    print(f"\n【覚醒度レベルの分布】")
+    print(df['alertness_level'].value_counts())
+
+    # 5. 異常値の検出
+    outliers = df[df['reaction_time_ms'] < 150]
+    print(f"\n異常に速い反応（< 150ms）: {len(outliers)}件")
+
+    conn.close()
+```
+
+### **8.2 他の指標との相関分析**
+
+```python
+def analyze_pvt_correlation(db_path="zone_key_data.db"):
+    """PVTスコアと他の行動指標の相関を分析"""
+
+    conn = sqlite3.connect(db_path)
+    query = """
+        SELECT
+            p.reaction_time_ms,
+            p.focus_score AS pvt_focus_score,
+            t.typing_speed_kpm,
+            t.mistype_frequency,
+            t.window_switch_count,
+            t.std_key_interval_ms
+        FROM pvt_results p
+        JOIN training_data t
+          ON ABS(p.timestamp - t.timestamp) < 300
+        WHERE p.reaction_time_ms IS NOT NULL
+    """
+
+    df = pd.read_sql_query(query, conn)
+
+    # 相関行列
+    correlation = df.corr()
+
+    print("="*50)
+    print("PVTスコアと行動指標の相関")
+    print("="*50)
+    print("\nPVT集中度スコアとの相関:")
+    print(correlation['pvt_focus_score'].sort_values(ascending=False))
+
+    # 期待される相関:
+    # - pvt_focus_score と typing_speed_kpm: 正の相関
+    # - pvt_focus_score と mistype_frequency: 負の相関
+    # - pvt_focus_score と window_switch_count: 負の相関
+    # - pvt_focus_score と std_key_interval_ms: 負の相関
+
+    conn.close()
+```
+
+---
+
+## **9. 実装スケジュール**
+
+### **Phase 1: PVT 基本実装（Week 1）**
+
+- [x] PVT テストの基本 UI 実装
+- [x] 反応時間の測定と記録
+- [x] データベーススキーマの作成
+- [ ] 動作確認（個人テスト）
+
+### **Phase 2: メインシステムへの統合（Week 1-2）**
+
+- [ ] データ収集プログラムへの統合
+- [ ] 抜き打ちテスト機能の実装
+- [ ] 通知システムの実装
+- [ ] ユーザーフィードバックの実装
+
+### **Phase 3: データ収集開始（Week 2-4）**
+
+- [ ] 5 名のチームメンバーに配布
+- [ ] 2 週間の継続的なデータ収集
+- [ ] 1 日 20-30 回の PVT テスト実施
+- [ ] 目標: 各人 300 回以上のテスト（計 1500 回以上）
+
+### **Phase 4: データ分析と検証（Week 4-5）**
+
+- [ ] PVT データの品質チェック
+- [ ] 個人ベースラインの確立
+- [ ] 他の行動指標との相関分析
+- [ ] 学習データセットの生成
+
+---
+
+## **10. DCON プレゼンテーションでの訴求ポイント**
+
+### **10.1 科学的根拠の強調**
+
+```
+「本システムでは、NASA や米軍でも使用される
+ PVT（精神運動警戒検査）を採用しています。
+
+ これは医学的に実証された客観的な疲労測定手法であり、
+ ユーザーの主観に依存しない、信頼性の高い
+ 集中度測定を実現しています。」
+```
+
+### **10.2 デモンストレーション**
+
+実際に PVT テストを実演：
+
+1. **通常状態でのテスト**: 反応時間 300ms → 集中度スコア 0.8
+2. **疲労状態でのテスト**: 反応時間 650ms → 集中度スコア 0.25
+3. **リアルタイムフィードバック**: 即座に状態判定
+
+### **10.3 データの可視化**
+
+- PVT 反応時間の経時変化グラフ
+- 疲労度の推移
+- 他の行動指標との相関マップ
+
+---
+
+## **11. 参考資料**
+
+### **11.1 学術論文**
+
+1. **Dinges, D. F., & Powell, J. W. (1985).** "Microcomputer analyses of performance on a portable, simple visual RT task during sustained operations."
+2. **Basner, M., & Dinges, D. F. (2011).** "Maximizing Sensitivity of the Psychomotor Vigilance Test (PVT) to Sleep Loss."
+3. **Lim, J., & Dinges, D. F. (2008).** "Sleep deprivation and vigilant attention."
+
+### **11.2 実装リファレンス**
+
+- NASA PVT Implementation Guide
+- 米国防総省 PVT プロトコル
+- Python tkinter 公式ドキュメント
+
+### **11.3 医学的根拠**
+
+PVT は以下の状態の測定に科学的に有効であることが実証されている：
+
+- 睡眠不足による疲労
+- 長時間作業による注意力低下
+- 認知負荷による処理速度の低下
+- マイクロスリープ（瞬間的な居眠り）の検出
+
+---
+
+## **12. まとめ**
+
+### **PVT 採用の優位性**
+
+| 項目          | 従来手法（自己申告） | PVT 手法            |
+| :------------ | :------------------- | :------------------ |
+| **客観性**    | ❌ 低い              | ✅ 高い             |
+| **科学性**    | ❌ 低い              | ✅ 医学的根拠あり   |
+| **再現性**    | ❌ 低い              | ✅ 高い             |
+| **負担**      | ❌ 中（入力必要）    | ✅ 低（数秒で完了） |
+| **即時性**    | ❌ 遅延あり          | ✅ リアルタイム     |
+| **DCON 評価** | ⭐⭐⭐               | ⭐⭐⭐⭐⭐          |
+
+### **期待される成果**
+
+1. **高精度な集中度推定**: 医学的に検証された手法による信頼性
+2. **DCON での高評価**: 科学的根拠による差別化
+3. **ユーザー満足度**: シンプルで負担の少ない測定
+4. **データの質**: 一貫性の高い学習データの構築
+
+**PVT の採用により、Zone Key は科学的に裏付けられた、他にはない集中度管理システムとなります。**
