@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\akats\ドキュメント\DCON2026\.myenv"
+VIRTUAL_ENV="C:\Users\akats\ドキュメント\GitRepository\eyes-dont-lie\DCON2026\.myenv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
