@@ -1,20 +1,19 @@
-# Zone Key - データ収集プログラム
-# 依存パッケージ
+# 入力監視・操作ログ
+pynput
 
-# 入力デバイス制御
-pynput==1.7.7
+# 数値計算・データ処理
+numpy
+pandas
 
-# データ処理
-numpy==1.26.3
-pandas==2.1.4
+# M5Stackとの通信
+pyserial
 
-# 環境センサー通信（M5Stack連携）
-pyserial==3.5
+# AI用（スケーラーの読み込み等で必要になる可能性あり）
+joblib
+scikit-learn
 
-# ウィンドウ情報取得（プラットフォーム依存）
-# macOS用
-pyobjc-framework-Cocoa==10.1; sys_platform == 'darwin'
+# 【Windowsの人だけ】ウィンドウ情報取得
+pygetwindow; sys_platform == 'win32'
 
-# Windows用
-pygetwindow==0.0.9; sys_platform == 'win32'
-
+# 【Macの人だけ】ウィンドウ情報取得
+pyobjc-framework-Cocoa; sys_platform == 'darwin'
