@@ -32,9 +32,9 @@ else:  # Linux
 # 作業カテゴリの分類ルール
 CATEGORY_RULES = {
     "development": ["Visual Studio Code", "PyCharm", "IntelliJ", "Xcode", "Terminal",
-                   "iTerm", "Code", "Sublime", "Atom", "Eclipse", "NetBeans"],
+                    "iTerm", "Code", "Sublime", "Atom", "Eclipse", "NetBeans"],
     "communication": ["Slack", "Discord", "Teams", "Zoom", "Mail", "Messages",
-                     "Skype", "LINE", "Telegram", "WhatsApp"],
+                    "Skype", "LINE", "Telegram", "WhatsApp"],
     "browsing": ["Chrome", "Firefox", "Safari", "Edge", "Brave", "Opera"],
     "document": ["Word", "Excel", "PowerPoint", "Pages", "Numbers", "Keynote",
                 "Google Docs", "Google Sheets"],
