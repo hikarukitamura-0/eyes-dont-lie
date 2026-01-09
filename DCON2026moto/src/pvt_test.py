@@ -285,11 +285,11 @@ class PVTTest:
 
     def get_alertness_level(self, rt_ms):
         # ★修正：全体的に基準を厳しく調整
-        if rt_ms < 400: return "非常に高い"  # 〜0.4s
-        if rt_ms < 700: return "高い"        # 〜0.7s
-        if rt_ms < 1200: return "通常"       # 〜1.2s
-        if rt_ms < 2000: return "低い"       # 〜2.0s
-        return "非常に低い"                  # 2.0s〜
+        if rt_ms < 1000: return "非常に高い"  # 〜1.0s （サクサク反応）
+        if rt_ms < 2500: return "高い"      # 〜2.5s （順調）
+        if rt_ms < 4500: return "通常"      # 〜4.5s （少し考え中〜普通）
+        if rt_ms < 7000: return "低い"      # 〜7.0s （手が止まりがち）
+        return "非常に低い"                 # 7.0s〜 （完全に停止）
 
     def close_db(self):
         try:
