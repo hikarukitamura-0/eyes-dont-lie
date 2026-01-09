@@ -5,8 +5,8 @@ import sqlite3
 import sys
 import statistics
 import platform
-import signal  # Ctrl+C用
-import queue   # スレッドセーフ用
+import signal
+import queue
 from ctypes import windll
 from pynput import keyboard
 
@@ -16,7 +16,7 @@ class PVTTest:
     - 集中度測定用モジュール
     - ステルス測定対応（作業用スレッドセーフ実装）
     - 結果はデータベース (zone_key_data.db) にのみ保存
-    - ★修正：判定基準を厳格化（非常に高い=0.4秒）
+    - ★修正: ユーザー指定の緩やかな判定基準に合わせてスコア計算を調整
     """
 
     def __init__(self, db_path="zone_key_data.db", root=None):
@@ -229,7 +229,7 @@ class PVTTest:
         self.root.after(500, self.run_next_trial)
 
     # ==========================================================
-    #  終了処理・判定ロジック
+    #  終了処理・判定ロジック（再調整済み）
     # ==========================================================
 
     def finish_session(self):
@@ -251,7 +251,10 @@ class PVTTest:
         # 判定を行う
         score = self.calculate_focus_score(avg_rt)
         alertness = self.get_alertness_level(avg_rt)
-        is_lapse = avg_rt > 2000
+        
+        # Lapse判定: 「低い」の基準に合わせて4500ms以上をLapse（集中切れ）とする
+        # （以前の2000msだと「通常」評価なのにLapse判定されてしまうため）
+        is_lapse = avg_rt >= 4500
         
         print(f"✅ PVT測定完了: 平均 {avg_rt:.1f}ms -> {alertness} (Score: {score:.2f})")
 
@@ -272,19 +275,23 @@ class PVTTest:
             print(f"⚠ DB保存失敗: {e}")
 
     def calculate_focus_score(self, rt_ms):
-        if rt_ms < 100: return 0.5  # 早すぎる場合
+        """
+        スコア計算（ユーザー指定の基準に合わせて調整）:
+        - 400ms以下: 1.0 (満点)
+        - 7000ms以上: 0.0 (非常に低いラインで0点になるように延長)
+        """
+        if rt_ms < 100: return 0.5
         
-        # ★修正：400ms以下で満点 (1.0)
         if rt_ms <= 400: return 1.0
         
-        # 2000ms以上で0点
-        if rt_ms >= 2000: return 0.0
+        # 7000ms以上で0点（以前は2000msでしたが、基準緩和に合わせました）
+        if rt_ms >= 7000: return 0.0
         
-        # 400〜2000の間で減点 (分母は1600)
-        return 1.0 - ((rt_ms - 400) / 1600)
+        # 400〜7000の間で線形に減点 (分母は 7000-400 = 6600)
+        return 1.0 - ((rt_ms - 400) / 6600)
 
     def get_alertness_level(self, rt_ms):
-        # ★修正：全体的に基準を厳しく調整
+        # ★修正：ご指定の基準値
         if rt_ms < 1000: return "非常に高い"  # 〜1.0s （サクサク反応）
         if rt_ms < 2500: return "高い"      # 〜2.5s （順調）
         if rt_ms < 4500: return "通常"      # 〜4.5s （少し考え中〜普通）
