@@ -166,6 +166,9 @@ class ZoneKeyDataCollector:
         """データ収集停止"""
         self.running = False
 
+        print("\nAI学習用データセットを生成しています...")
+        self.storage.export_pvt_dataset()
+
         # 統計情報を表示
         self.display_statistics()
 
